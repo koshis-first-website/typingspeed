@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Koshish Typing Master</title>
+    <style>
+        /* 1. BACKGROUND & BUBBLES */
+        body {
+            background: linear-gradient(180deg, #0f172a 0%, #1e40af 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .float-item {
+            position: absolute;
+            bottom: -120px;
+            animation: floatUp 10s linear infinite;
+            z-index: 1;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: bold;
+            pointer-events: none;
+        }
+        .bubble { background: rgba(255, 255, 255, 0.2); border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.1); }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 0.6; }
+            100% { transform: translateY(-130vh); opacity: 0; }
+        }
+
+        /* 2. THE GLASS INTERFACE (FastFingers Style) */
+        .glass-container {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            border-radius: 40px;
+            text-align: center;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+            width: 90%;
+            max-width: 700px;
+        }
+
+        .word-box {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin: 20px 0;
+            font-size: 1.5rem;
+            color: #333;
+            text-align: left;
+            height: 110px;
+            overflow: hidden;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .highlight { background: #cbd5e1; border-radius: 5px; padding: 0 8px; }
+        .correct { color: #22c55e; }
+        .wrong { color: #ef4444; text-decoration: underline; }
+
+        .control-row { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
+
+        input[type="text"] {
+            flex: 2;
+            padding: 15px;
+            border-radius: 15px;
+            border: none;
+            font-size: 1.2rem;
+            outline: none;
+        }
+
+        .timer-box {
+            background: #1e293b;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .login-trigger { background: #3b82f6; color: white; position: absolute; top: 20px; right: 20px; z-index: 20; }
+
+        /* 3. LOGIN MODAL - FULL NAME & SURNAME */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-card {
+            background: white;
+            padding: 40px;
+            border-radius: 35px;
+            text-align: center;
+            width: 350px;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn { from { transform: scale(0.7); opacity: 0; } }
+
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        .welcome-msg { font-size: 1.2rem; color: #1e40af; line-height: 1.5; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <button class="btn login-trigger" id="loginBtn" onclick="toggleModal(true)">Login</button>
+
+    <div class="glass-container">
+        <p style="color: white; opacity: 0.7; margin: 0;">typing-master:)</p>
+        
+        <div class="word-box" id="wordBox"></div>
+
+        <div class="control-row">
+            <input type="text" id="typeInput" placeholder="Start typing..." autocomplete="off">
+            <div class="timer-box" id="timer">1:00</div>
+            <button class="btn" style="background: #64748b; color: white;" onclick="location.reload()">↻</button>
+        </div>
+
+        <p style="color: white; font-weight: bold; opacity: 0.6;">MADE BY KOSHISH</p>
+    </div>
+
+    <div class="modal" id="loginModal">
+        <div class="modal-card" id="modalContent">
+            <h2 style="color: #1e3a8a; margin-top: 0;">Member Login</h2>
+            <input type="text" id="firstName" class="login-input" placeholder="First Name">
+            <input type="text" id="surName" class="login-input" placeholder="Surname">
+            <button class="btn" style="background: #22c55e; color: white; width: 100%; margin-top: 15px;" onclick="doLogin()">JOIN KOSHISH</button>
+        </div>
+    </div>
+
+    <script>
+        // Data from reference image: common typing words
+        const wordList = "most no work read not both near girl find think head until important is page its will often how another back we play feet river light in he make".split(" ");
+        let idx = 0;
+        let time = 60;
+        let running = false;
+        let clock;
+
+        // 1. FLOATERS
+        for (let i = 0; i < 15; i++) {
+            let d = document.createElement('div');
+            d.className = (i % 5 === 0) ? 'float-item' : 'float-item bubble';
+            if(i % 5 === 0) d.innerText = "MADE BY KOSHISH";
+            d.style.left = Math.random() * 100 + 'vw';
+            d.style.animationDelay = Math.random() * 10 + 's';
+            document.body.appendChild(d);
+        }
+
+        // 2. TYPING LOGIC
+        function init() {
+            const box = document.getElementById('wordBox');
+            box.innerHTML = wordList.map((w, i) => `<span id="w-${i}">${w}</span>`).join(" ");
+            document.getElementById(`w-0`).className = "highlight";
+        }
+
+        document.getElementById('typeInput').addEventListener('input', (e) => {
+            if (!running) {
+                running = true;
+                clock = setInterval(() => {
+                    time--;
+                    document.getElementById('timer').innerText = `0:${time.toString().padStart(2, '0')}`;
+                    if (time === 0) clearInterval(clock);
+                }, 1000);
+            }
+
+            if (e.target.value.endsWith(" ")) {
+                let typed = e.target.value.trim();
+                let target = wordList[idx];
+                document.getElementById(`w-${idx}`).className = (typed === target) ? "correct" : "wrong";
+                idx++;
+                e.target.value = "";
+                if (idx < wordList.length) document.getElementById(`w-${idx}`).className = "highlight";
+            }
+        });
+
+        // 3. LOGIN LOGIC
+        function toggleModal(show) {
+            document.getElementById('loginModal').style.display = show ? 'flex' : 'none';
+        }
+
+        function doLogin() {
+            const fname = document.getElementById('firstName').value;
+            const sname = document.getElementById('surName').value;
+
+            if (fname && sname) {
+                const content = document.getElementById('modalContent');
+                content.innerHTML = `
+                    <div class="welcome-msg">
+                        Thanks for logging in,<br>
+                        <span style="color: #22c55e;">${fname} ${sname}</span>!<br>
+                        You are a member of <b>KOSHISH</b>.
+                    </div>
+                `;
+                
+                // Keep name on top button
+                document.getElementById('loginBtn').innerText = `${fname}`;
+
+                setTimeout(() => {
+                    toggleModal(false);
+                }, 3000);
+            } else {
+                alert("Please enter both Name and Surname");
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
